@@ -141,8 +141,8 @@ public class L3Routing implements IFloodlightModule, IOFSwitchListener,
 	    	{
 	    		long src = l.getSrc();
 	    		long dst = l.getDst();
-	    		short srcPort = l.getSrcPort();
-	    		short dstPort = l.getDstPort();
+	    		short srcPort = (short)l.getSrcPort();
+	    		short dstPort = (short)l.getDstPort();
 	    		
 	    		if (!adj.containsKey(src))
 	    		{ adj.put(src, new HashMap<Long, Short>()); }
@@ -192,7 +192,6 @@ public class L3Routing implements IFloodlightModule, IOFSwitchListener,
 	    private void clearRoutingTableOnAllSwitches(Map<Long, IOFSwitch> switches)
 	    {
 	    	OFMatch matchAll = new OFMatch();
-	    	matchAll.setWildcards(OFMatch.OFPFW_ALL);
 	    	for (IOFSwitch sw : switches.values())
 	    	{ SwitchCommands.removeRules(sw, this.table, matchAll); }
 	    }
@@ -228,10 +227,6 @@ public class L3Routing implements IFloodlightModule, IOFSwitchListener,
 	    		match.setDataLayerType(Ethernet.TYPE_IPv4);
 	    		match.setDataLayerDestination(
 	    				MACAddress.valueOf(dstHost.getMACAddress()).toBytes());
-	    		int wildcards = OFMatch.OFPFW_ALL;
-	    		wildcards &= ~OFMatch.OFPFW_DL_TYPE;
-	    		wildcards &= ~OFMatch.OFPFW_DL_DST;
-	    		match.setWildcards(wildcards);
 	    		
 	    		for (Map.Entry<Long, IOFSwitch> swEntry : switches.entrySet())
 	    		{

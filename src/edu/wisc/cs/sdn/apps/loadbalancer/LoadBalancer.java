@@ -4,19 +4,18 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import org.openflow.protocol.OFMatch;
 import org.openflow.protocol.OFMessage;
 import org.openflow.protocol.OFPacketIn;
+import org.openflow.protocol.OFOXMFieldType;
 import org.openflow.protocol.OFPort;
 import org.openflow.protocol.OFType;
 import org.openflow.protocol.action.OFAction;
-import org.openflow.protocol.action.OFActionDataLayerDestination;
-import org.openflow.protocol.action.OFActionDataLayerSource;
-import org.openflow.protocol.action.OFActionNetworkLayerDestination;
-import org.openflow.protocol.action.OFActionNetworkLayerSource;
 import org.openflow.protocol.action.OFActionOutput;
+import org.openflow.protocol.action.OFActionSetField;
 import org.openflow.protocol.instruction.OFInstruction;
 import org.openflow.protocol.instruction.OFInstructionApplyActions;
 import org.openflow.protocol.instruction.OFInstructionGotoTable;
@@ -153,8 +152,6 @@ public class LoadBalancer implements IFloodlightModule, IOFSwitchListener,
 			// (2) ARP packets to controller
 			OFMatch arpMatch = new OFMatch();
 			arpMatch.setDataLayerType(Ethernet.TYPE_ARP);
-			int arpWildcards = OFMatch.OFPFW_ALL & ~OFMatch.OFPFW_DL_TYPE;
-			arpMatch.setWildcards(arpWildcards);
 			List<OFAction> arpActions = new ArrayList<OFAction>();
 			arpActions.add(new OFActionOutput(OFPort.OFPP_CONTROLLER.getValue()));
 			OFInstructionApplyActions arpApply = new OFInstructionApplyActions();
@@ -176,11 +173,6 @@ public class LoadBalancer implements IFloodlightModule, IOFSwitchListener,
 				vipMatch.setDataLayerType(Ethernet.TYPE_IPv4);
 				vipMatch.setNetworkProtocol(IPv4.PROTOCOL_TCP);
 				vipMatch.setNetworkDestination(inst.getVirtualIP());
-				int vipWildcards = OFMatch.OFPFW_ALL;
-				vipWildcards &= ~OFMatch.OFPFW_DL_TYPE;
-				vipWildcards &= ~OFMatch.OFPFW_NW_PROTO;
-				vipWildcards &= ~OFMatch.OFPFW_NW_DST_MASK;
-				vipMatch.setWildcards(vipWildcards);
 				
 				List<OFAction> vipActions = new ArrayList<OFAction>();
 				vipActions.add(new OFActionOutput(
@@ -202,7 +194,6 @@ public class LoadBalancer implements IFloodlightModule, IOFSwitchListener,
 			
 			// (3) Default rule: goto L3Routing table
 			OFMatch defaultMatch = new OFMatch();
-			defaultMatch.setWildcards(OFMatch.OFPFW_ALL);
 			OFInstructionGotoTable gotoTable = new OFInstructionGotoTable();
 			gotoTable.setTableId(this.l3RoutingApp.getTable());
 			gotoTable.setLength((short)OFInstructionGotoTable.MINIMUM_LENGTH);
@@ -320,20 +311,12 @@ public class LoadBalancer implements IFloodlightModule, IOFSwitchListener,
 						c2sMatch.setNetworkDestination(vip);
 						c2sMatch.setTransportSource(clientPort);
 						c2sMatch.setTransportDestination(servicePort);
-						int c2sWildcards = OFMatch.OFPFW_ALL;
-						c2sWildcards &= ~OFMatch.OFPFW_DL_TYPE;
-						c2sWildcards &= ~OFMatch.OFPFW_NW_PROTO;
-						c2sWildcards &= ~OFMatch.OFPFW_NW_SRC_MASK;
-						c2sWildcards &= ~OFMatch.OFPFW_NW_DST_MASK;
-						c2sWildcards &= ~OFMatch.OFPFW_TP_SRC;
-						c2sWildcards &= ~OFMatch.OFPFW_TP_DST;
-						c2sMatch.setWildcards(c2sWildcards);
 						
 						List<OFAction> c2sActions = new ArrayList<OFAction>();
 						c2sActions.add(
-								new OFActionDataLayerDestination(hostMAC));
+								new OFActionSetField(OFOXMFieldType.ETH_DST, hostMAC));
 						c2sActions.add(
-								new OFActionNetworkLayerDestination(hostIP));
+								new OFActionSetField(OFOXMFieldType.IPV4_DST, hostIP));
 						OFInstructionApplyActions c2sApply =
 								new OFInstructionApplyActions();
 						c2sApply.setActions(c2sActions);
@@ -366,20 +349,12 @@ public class LoadBalancer implements IFloodlightModule, IOFSwitchListener,
 						s2cMatch.setNetworkDestination(clientIP);
 						s2cMatch.setTransportSource(servicePort);
 						s2cMatch.setTransportDestination(clientPort);
-						int s2cWildcards = OFMatch.OFPFW_ALL;
-						s2cWildcards &= ~OFMatch.OFPFW_DL_TYPE;
-						s2cWildcards &= ~OFMatch.OFPFW_NW_PROTO;
-						s2cWildcards &= ~OFMatch.OFPFW_NW_SRC_MASK;
-						s2cWildcards &= ~OFMatch.OFPFW_NW_DST_MASK;
-						s2cWildcards &= ~OFMatch.OFPFW_TP_SRC;
-						s2cWildcards &= ~OFMatch.OFPFW_TP_DST;
-						s2cMatch.setWildcards(s2cWildcards);
 						
 						List<OFAction> s2cActions = new ArrayList<OFAction>();
 						s2cActions.add(
-								new OFActionDataLayerSource(vmac));
+								new OFActionSetField(OFOXMFieldType.ETH_SRC, vmac));
 						s2cActions.add(
-								new OFActionNetworkLayerSource(vip));
+								new OFActionSetField(OFOXMFieldType.IPV4_SRC, vip));
 						OFInstructionApplyActions s2cApply =
 								new OFInstructionApplyActions();
 						s2cApply.setActions(s2cActions);
